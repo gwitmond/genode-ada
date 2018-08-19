@@ -1,0 +1,52 @@
+<runtime ram="20M" caps="300" binary="init">
+
+        <requires />
+
+	<content>
+		<rom label="ld.lib.so"/>
+		<rom label="vfs.lib.so"/>
+		<rom label="vfs"/>
+		<rom label="ada"/>
+		<rom label="fs_report"/>
+	</content>
+
+	<config verbose="yes">
+	  <parent-provides>
+	  	<service name="CPU"/>
+		<service name="LOG"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="ROM"/>
+		<service name="File_system"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+	
+	<default caps="100"/>
+
+	<start name="fs_report" >
+	    <resource name="RAM" quantum="2M" />
+	    <provides> <service name="Report"/> </provides>
+            <config>
+                 <vfs>  <fs/>  </vfs> 
+		<default-policy path="/" writeable="yes" />
+	    </config>
+	    <route>
+		<service name="File_system"> <parent label="config"/> </service>
+		<any-service> <parent/> <any-child/> </any-service>
+	    </route>
+	</start>
+
+	<start name="ada">
+	       <resource name="RAM" quantum="2M" />
+	       <config/>
+	      <route>
+		<service name="ROM" label="connectors"> <parent label="connectors"/> </service>
+		<service name="Report" label="fb_drv"> <child name="fs_report"/> </service>
+		<any-service> <parent/> <any-child/> </any-service>
+	    </route>
+	</start>
+</config>
+</runtime>

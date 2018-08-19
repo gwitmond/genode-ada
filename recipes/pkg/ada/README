@@ -1,0 +1,4 @@
+Auto Display Adjust (ADA)
+
+Genode application to set two or more displays to the maximum of their common resolutions.
+Useful when connecting a laptop to an unknown projector (beamer).

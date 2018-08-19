@@ -1,0 +1,189 @@
+#
+# Build
+#
+set build_components {
+	core init
+	app/ada
+	drivers/timer
+	server/dynamic_rom
+	server/report_rom
+	server/fs_rom
+	server/ram_fs
+	server/fs_report
+}
+
+build $build_components
+
+create_boot_directory
+
+#
+# Generate config
+#
+append config {
+<config verbose="no">
+	<parent-provides>
+		<service name="CPU"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="IRQ"/>
+		<service name="LOG"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="ROM"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="100"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="report_rom">
+       		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/><service name="Report"/></provides>
+		<config verbose="yes">
+
+		</config>
+	</start>
+
+	<start name="dynamic_rom">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/></provides>
+		<config verbose="yes">
+			<rom name="connectors">
+				<inline description="iteration 1">
+					<connectors>
+						<connector name="FOO-1" connected="false"/>
+						<connector name="LVDS-11" connected="true">
+			   				   <mode width="1280" height="800" hz="60"/>
+							   <mode width="640" height="480" hz="50"/>
+							   <mode width="800" height="480" hz="66"/>
+						</connector>
+						<connector name="VGA-1" connected="true">
+			   				   <mode width="1280" height="800" hz="60"/>
+							   <mode width="640" height="480" hz="50"/>
+							   <mode width="4000" height="4000" hz="666"/>
+						</connector>
+					</connectors>
+				</inline>
+				<sleep milliseconds="1000" />
+				<inline description="iteration 3">
+					<connectors>
+					        <connector name="eDP-36" connected="true">
+						        <mode width="1920" height="1080" hz="60"/>
+					        </connector>
+					        <connector name="DP-46" connected="false"/>
+        					<connector name="HDMI-A-49" connected="false"/>
+        					<connector name="DP-53" connected="true">
+                					   <mode width="1920" height="1200" hz="60"/>
+                					   <mode width="1920" height="1080" hz="60"/>
+                					   <mode width="1600" height="1200" hz="60"/>
+                					   <mode width="1680" height="1050" hz="60"/>
+                					   <mode width="1600" height="900" hz="60"/>
+							   <mode width="1280" height="1024" hz="60"/>
+                					   <mode width="1440" height="900" hz="60"/>
+                					   <mode width="1280" height="800" hz="60"/>
+                					   <mode width="1280" height="720" hz="60"/>
+                					   <mode width="1024" height="768" hz="60"/>
+                					   <mode width="800" height="600" hz="60"/>
+                					   <mode width="640" height="480" hz="60"/>
+					        </connector>
+						<connector name="HDMI-A-56" connected="false"/>
+					</connectors>
+				</inline>
+								<sleep milliseconds="1000" />
+				<inline description="iteration 2">
+					<config iteration="2" />
+				</inline>
+				<sleep milliseconds="500" />
+			</rom>
+		</config>
+	</start>
+
+	<start name="ada">
+		<resource name="RAM" quantum="1M"/>
+		<config>
+			<vfs>
+                                <dir name="dev"> <log/> <null/> </dir>
+			</vfs>
+                        <libc stdout="/dev/log" stderr="/dev/log"/>
+		</config>
+		<route>
+			<service name="ROM" label="connectors"> <child name="dynamic_rom"/> </service>
+			<!--<service name="ROM" label="connectors"> <child name="report_fs_rom"/> </service>-->
+			<service name="Report" label="fb_drv"> <child name="report_rom"/> </service>
+
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="report_fs_rom">
+	        <binary name="fs_rom"/>
+	       	<resource name="RAM" quantum="1M"/>
+		<provides> <service name="ROM"/> </provides>
+		<config/>
+		<route>
+			<service name="File_system"> <child name="report_fs"/> </service>
+			<any-service> <parent/> </any-service>
+		</route>
+	</start>
+
+	<start name="report_fs">
+	        <binary name="ram_fs"/>
+	        <resource name="RAM" quantum="1M"/>
+	        <provides> <service name="File_system"/> </provides>
+	        <config verbose="yes">
+			<default-policy root="/" writable="yes"/>
+			<vfs>
+			<fs>
+			</fs>
+			</vfs>
+		</config>
+	</start>
+
+	<start name="fs_report">
+	        <resource name="RAM" quantum="1M"/>
+	        <provides> <service name="Report"/> </provides>
+	        <config>
+		</config>
+
+                <route>
+                        <service name="File_system"> <child name="report_fs"/> </service>
+                        <any-service> <parent/> </any-service>
+                </route>
+        </start>
+
+
+</config>}
+
+install_config $config
+
+#
+# Boot modules
+#
+
+# generic modules
+set boot_modules {
+	core ld.lib.so init
+	dynamic_rom
+	ada
+	timer
+	report_rom
+	fs_rom
+	ram_fs
+	fs_report
+	vfs.lib.so
+}
+#	libc.lib.so 	libm.lib.so	stdcxx.lib.so
+
+
+build_boot_image $boot_modules
+
+append qemu_args "  -nographic"
+
+run_genode_until {.*<config iteration="2" />.*} 60
